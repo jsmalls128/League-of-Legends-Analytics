@@ -80,15 +80,45 @@ public class DBServlet extends HttpServlet {
 					"(SELECT count(*) from tempMatches where championId = (SELECT championId from championdata WHERE name = \""+words[1]+"\")) as winratio, name, championId from championdata where name = \""+words[1]+"\"";
 			}
 		}
+		else if(words[0].equalsIgnoreCase("patchwinrate")) {
+			output = "WITH tempMatches as\r\n" + 
+					"(SELECT gameVersion, played.gameId, championId, victory from matches join played on played.gameId = matches.gameId Where  matches.gameVersion like'"+words[2]+"%')\r\n" + 
+					"Select \r\n" + 
+					"(SELECT count(*) from tempMatches where championId = (SELECT championId from championdata WHERE name = \""+words[1] +"\") AND victory =\"YES\")/\r\n" + 
+					"(SELECT count(*) from tempMatches where championId = (SELECT championId from championdata WHERE name = \""+words[1] +"\")) as winratio, name, championId from championdata where name = \""+words[1]+"\";";
+		}
 		else if(words[0].equalsIgnoreCase("visionscore")){
 			output = "WITH vis as (SELECT summonerName, avg(visionScore) as avgVisionScore FROM matchstats group by summonerName)\r\n" + 
 					"select avg(avgVisionScore) as avgVisionScore,league from vis natural join summoner group by league order by avgVisionScore DESC;";
 		}
 		else if(words[0].equalsIgnoreCase("counters")) {
-			
+			output = "with perchamp (wins, games, champvsID, champvsName, role) as (SELECT SUM(case when vic = 'YES' then 1 else 0 end) wins, COUNT(*) games, t.champid2, name, role \r\n" + 
+					"    FROM\r\n" + 
+					"		(SELECT tab2.championID as champid2, tab1.victory as vic, name, tab1.role as role\r\n" + 
+					"		FROM (played as tab1\r\n" + 
+					"        JOIN played as tab2 on tab1.gameID = tab2.gameID and tab1.role = tab2.role and tab1.championID != tab2.championID and tab1.victory != tab2.victory)\r\n" + 
+					"        JOIN championdata on tab2.championid = championdata.championId\r\n" + 
+					"        JOIN matches on tab1.gameId = matches.gameid and matches.gamemode = 'CLASSIC'\r\n" + 
+					"        WHERE tab1.championID = (SELECT championId from championdata WHERE name = \""+words[1]+"\")) as t\r\n" + 
+					"        GROUP BY t.champid2\r\n" + 
+					"        ORDER BY wins ASC\r\n" + 
+					"        )\r\n" + 
+					"        \r\n" + 
+					"SELECT wins/games as winRate, games as numGames, champVsID, champVsName, role from perchamp;";
 		}
 		else if(words[0].equalsIgnoreCase("compliments")) {
-			
+			output = "with perchamp (wins, games, champWithID, champWithName) as (SELECT SUM(case when vic = 'YES' then 1 else 0 end) wins, COUNT(*) games, t.champid2, name \r\n" + 
+					"    FROM\r\n" + 
+					"		(SELECT tab2.championID as champid2, tab1.victory as vic, name\r\n" + 
+					"		FROM (played as tab1\r\n" + 
+					"        JOIN played as tab2 on tab1.gameID = tab2.gameID and tab1.championID != tab2.championID)\r\n" + 
+					"        JOIN championdata on tab2.championid = championdata.championId\r\n" + 
+					"        JOIN matches on tab1.gameId = matches.gameid and matches.gamemode = 'CLASSIC'\r\n" + 
+					"        WHERE tab1.championID = (SELECT championId from championdata WHERE name = \""+words[1]+"\")) as t\r\n" + 
+					"        GROUP BY t.champid2\r\n" + 
+					"        order by wins desc\r\n" + 
+					"        )\r\n" + 
+					"SELECT wins/games as winRate, games, champWithID, champWithName from perchamp;\r\n";
 		}
 		else if (words[0].equalsIgnoreCase("matchhistory")) {
 			output = "SELECT summonername,gameId,victory,team,role,kills,deaths,assists, totalMinionsKilled as cs,goldEarned,visionScore FROM (summoner NATURAL JOIN played) natural join matchstats WHERE summonerName = \""+words[1]+"\" ;";
@@ -96,12 +126,12 @@ public class DBServlet extends HttpServlet {
 		else if(words[0].equalsIgnoreCase("pickrate")) {
 			output = "Select count(*) as count, name,(count(*))/(select count(*) from matches) as PickRatio from championdata cd natural join played p group by name order by count DESC;";
 		}
+		System.out.println(output);
 		return output;
 	}
 	// Get button value from index.jsp
 	public String getQueryValue() {
 		// Insert parsing right here
-		System.out.println("value: " + value);
 		return inputParser();
 	}
 
